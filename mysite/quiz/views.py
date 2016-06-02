@@ -1,0 +1,114 @@
+from django.shortcuts import render, redirect
+from .models import Quiz, Question, Option
+
+import logging
+
+# Get an instance of a logger
+logger = logging.getLogger(__name__)
+
+
+def index_view(request):
+    template_name = 'index.html'
+
+    return render(request, template_name, {'quizs_list': Quiz.objects.all})
+
+
+def get_question_mapping(question_list):
+    '''
+    Maps the questions from DB into 2 structures:
+      question_mapping - keeps the questions and options text
+      selected_option - keeps the option select info for the session
+
+    questions_mapping = [{'question_text': 'text',
+                          'options': {'option_1': 'text',
+                                      'option_2': 'text'}},
+                         {'question_text': 'text',
+                          'options': {'option_3': 'text'}}]
+    selected_options = {'option_1': False,
+                        'option_2': True}}
+    '''
+    selected_options = {}
+    questions_mapping = []
+
+    for question in question_list:
+        raw_options = question.option_set.all()
+
+        mapped_options = {}
+        for option in raw_options:
+            mapped_options['option_' + str(option.id)] = option.text
+
+            selected_options['option_' + str(option.id)] = False
+
+        questions_mapping.append({'question_text': question.text,
+                                  'options': mapped_options})
+
+    return questions_mapping, selected_options
+
+
+def quiz_view(request, quiz_id):
+    template_name = 'quiz_form.html'
+    questions_per_page = 2
+
+    # if the session is new get all questions from DB and map them into a dict structure
+    if request.session.get('quiz_id', -1) != quiz_id:
+        raw_question_list = Question.objects.filter(quiz=quiz_id).prefetch_related('option_set')
+
+        request.session.clear()
+        request.session['quiz_id'] = quiz_id
+        request.session['last_page_no'] = 0
+
+        # 'selected_options' keeps track of selected options for each session
+        request.session['question_list'], request.session['selected_options'] = \
+            get_question_mapping(raw_question_list)
+
+    question_list = request.session['question_list']
+
+    # calculate current page
+    delta_quesiton_list = request.session['last_page_no'] * questions_per_page
+    page_question_list = question_list[delta_quesiton_list :
+                                       (delta_quesiton_list + questions_per_page)]
+
+    if request.method == 'POST':
+        # update the session data with selected options from POST
+        for question in page_question_list:
+            for option_id, option_text in question['options'].items():
+                request.session['selected_options'][option_id] = (option_id in request.POST)
+
+        if 'Previous' in request.POST:
+            request.session['last_page_no'] -= 1
+        elif 'Next' in request.POST:
+            # ToDo: validate +1 option/question
+            request.session['last_page_no'] += 1
+
+        return redirect('quiz', quiz_id=quiz_id)
+
+
+    else:
+        def _get_context_question_list(page_question_list, request_session):
+            '''Packs the questions info into a context list'''
+            # context_question_list = [('question1', [('opt_id', 'opt_text', False),
+            #                                         ('opt_id', 'opt_text', False)]),
+            #                          ('question2', [('opt_id', 'opt_text', False)])]
+            context_question_list = []
+            for question in page_question_list:
+                # options = [('opt_id', 'opt_text', False),
+                #            ('opt_id', 'opt_text', True)]
+                options = []
+                for option_id, option_text in question['options'].items():
+                    is_selected = request_session['selected_options'][option_id]
+                    options.append((option_id, option_text, is_selected))
+
+                context_question_list.append((question['question_text'], options))
+            return context_question_list
+
+
+        is_last_page = delta_quesiton_list + questions_per_page >= len(question_list)
+
+        questions = _get_context_question_list(page_question_list, request.session)
+
+        context = {'quiz_id': quiz_id,
+                   'is_last_page': is_last_page,
+                   'current_page': request.session['last_page_no'],
+                   'questions': questions}
+
+        return render(request, template_name, context)

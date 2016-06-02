@@ -1,0 +1,24 @@
+{% load quiz_tags %}
+<h1> Quiz {{quiz_id}} page {{current_page}} </h1>
+
+<form action='{% url "quiz" quiz_id %}' method='post'>
+    {% csrf_token %}
+    {% for question_text, options in questions %}
+        <p> {{question_text}} </p>
+        {% for option_id, option_text, is_selected in options %}
+            <input {% if is_selected %}
+            checked 
+            {% endif %} type='checkbox' name='{{option_id}}'>
+            <label> {{option_text}} </label><p>
+            </p>
+        {% endfor %}
+    {% endfor %}
+<p>
+</p>
+{% if current_page != 0 %}
+    <input type='submit' value='Previous Page' name='Previous'>
+{% endif %}
+{% if not is_last_page %}
+    <input type='submit' value='Next Page' name='Next'>
+{% endif %}
+</form>
