@@ -49,6 +49,7 @@ def get_question_mapping(question_list):
 
 def quiz_view(request, quiz_id):
     template_name = 'quiz_form.html'
+    result_template_name = 'quiz_result.html'
     questions_per_page = 2
 
     # if the session is new get all questions from DB and map them into a dict structure
@@ -57,16 +58,19 @@ def quiz_view(request, quiz_id):
 
         request.session.clear()
         request.session['quiz_id'] = quiz_id
-        request.session['last_page_no'] = 0
+        request.session['current_page_no'] = 0
 
         # 'selected_options' keeps track of selected options for each session
         request.session['question_list'], request.session['selected_options'] = \
             get_question_mapping(raw_question_list)
 
+        request.session['last_page_no'] = \
+            len(request.session['question_list']) / questions_per_page
+
     question_list = request.session['question_list']
 
     # calculate current page
-    delta_quesiton_list = request.session['last_page_no'] * questions_per_page
+    delta_quesiton_list = request.session['current_page_no'] * questions_per_page
     page_question_list = question_list[delta_quesiton_list :
                                        (delta_quesiton_list + questions_per_page)]
 
@@ -86,15 +90,16 @@ def quiz_view(request, quiz_id):
                 request.session['selected_options'][option_id] = (option_id in request.POST)
 
         if 'Previous' in request.POST:
-            request.session['last_page_no'] -= 1
-        elif 'Next' in request.POST:
+            request.session['current_page_no'] -= 1
+        elif 'Next' in request.POST or \
+             'Finish' in request.POST:
             try:
                 _validate_min_options_selected(page_question_list,
                                                request.session['selected_options'])
             except ValidationError as exception:
                 request.session['error'] = exception.message
             else:
-                request.session['last_page_no'] += 1
+                request.session['current_page_no'] += 1
 
         return redirect('quiz', quiz_id=quiz_id)
 
@@ -117,17 +122,22 @@ def quiz_view(request, quiz_id):
                 context_question_list.append((question['question_text'], options))
             return context_question_list
 
+        error = request.session.get('error', None)
+        request.session['error'] = None
+        if request.session['current_page_no'] > request.session['last_page_no']:
+            if not error:
+                request.session.clear()
 
-        is_last_page = delta_quesiton_list + questions_per_page >= len(question_list)
+                context = {}
+                return render(request, result_template_name, context)
+            else:
+                request.session['current_page'] -= 1
 
         questions = _get_context_question_list(page_question_list, request.session)
 
-        error = request.session.get('error', None)
-        request.session['error'] = None
-
         context = {'quiz_id': quiz_id,
-                   'is_last_page': is_last_page,
-                   'current_page': request.session['last_page_no'],
+                   'is_last_page': request.session['current_page_no'] == request.session['last_page_no'],
+                   'current_page': request.session['current_page_no'],
                    'questions': questions,
                    'error': error}
 
