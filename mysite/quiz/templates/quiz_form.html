@@ -1,6 +1,10 @@
 {% load quiz_tags %}
 <h1> Quiz {{quiz_id}} page {{current_page}} </h1>
 
+{% if error %}
+<p style="color:red;">ERROR: {{error}} </p>
+{% endif %}
+
 <form action='{% url "quiz" quiz_id %}' method='post'>
     {% csrf_token %}
     {% for question_text, options in questions %}

@@ -1,4 +1,6 @@
 from django.shortcuts import render, redirect
+from django.core.exceptions import ValidationError
+
 from .models import Quiz, Question, Option
 
 import logging
@@ -69,16 +71,30 @@ def quiz_view(request, quiz_id):
                                        (delta_quesiton_list + questions_per_page)]
 
     if request.method == 'POST':
+        def _validate_min_options_selected(question_list, selected_options):
+            for question in question_list:
+                for option_id, _ in question['options'].items():
+                    if selected_options[option_id]:
+                        break
+                else:
+                    raise ValidationError('Please fill all questions '
+                                          'with at least one option!')
+
         # update the session data with selected options from POST
         for question in page_question_list:
-            for option_id, option_text in question['options'].items():
+            for option_id, _ in question['options'].items():
                 request.session['selected_options'][option_id] = (option_id in request.POST)
 
         if 'Previous' in request.POST:
             request.session['last_page_no'] -= 1
         elif 'Next' in request.POST:
-            # ToDo: validate +1 option/question
-            request.session['last_page_no'] += 1
+            try:
+                _validate_min_options_selected(page_question_list,
+                                               request.session['selected_options'])
+            except ValidationError as exception:
+                request.session['error'] = exception.message
+            else:
+                request.session['last_page_no'] += 1
 
         return redirect('quiz', quiz_id=quiz_id)
 
@@ -106,9 +122,13 @@ def quiz_view(request, quiz_id):
 
         questions = _get_context_question_list(page_question_list, request.session)
 
+        error = request.session.get('error', None)
+        request.session['error'] = None
+
         context = {'quiz_id': quiz_id,
                    'is_last_page': is_last_page,
                    'current_page': request.session['last_page_no'],
-                   'questions': questions}
+                   'questions': questions,
+                   'error': error}
 
         return render(request, template_name, context)
