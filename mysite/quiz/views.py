@@ -26,8 +26,10 @@ def get_question_mapping(question_list):
                                       'option_2': 'text'}},
                          {'question_text': 'text',
                           'options': {'option_3': 'text'}}]
-    selected_options = {'option_1': False,
-                        'option_2': True}}
+    selected_options = {'option_1': {'is_selected': False,
+                                     'score': 1},
+                        'option_2': {'is_selected': True,
+                                     'score': 1},}}
     '''
     selected_options = {}
     questions_mapping = []
@@ -39,7 +41,8 @@ def get_question_mapping(question_list):
         for option in raw_options:
             mapped_options['option_' + str(option.id)] = option.text
 
-            selected_options['option_' + str(option.id)] = False
+            selected_options['option_' + str(option.id)] = {'is_selected': False,
+                                                            'score': option.scor}
 
         questions_mapping.append({'question_text': question.text,
                                   'options': mapped_options})
@@ -67,6 +70,9 @@ def quiz_view(request, quiz_id):
         request.session['last_page_no'] = \
             len(request.session['question_list']) / questions_per_page
 
+        last_page_no = request.session['last_page_no']
+        request.session['current_score'] = [0] * (last_page_no + 1)
+
     question_list = request.session['question_list']
 
     # calculate current page
@@ -78,17 +84,27 @@ def quiz_view(request, quiz_id):
         def _validate_min_options_selected(question_list, selected_options):
             for question in question_list:
                 for option_id, _ in question['options'].items():
-                    if selected_options[option_id]:
+                    if selected_options[option_id]['is_selected']:
                         break
                 else:
                     raise ValidationError('Please fill all questions '
                                           'with at least one option!')
 
+        def _calculate_score(selected_option_list):
+            page_score = 0
+            for option in selected_option_list:
+                page_score += option['score']
+            return page_score
+
+
+        page_selected_options = []
         # update the session data with selected options from POST
         for question in page_question_list:
             for option_id, _ in question['options'].items():
-                request.session['selected_options'][option_id] = (option_id in request.POST)
-
+                is_selected = (option_id in request.POST)
+                request.session['selected_options'][option_id]['is_selected'] = is_selected
+                if is_selected:
+                    page_selected_options.append(request.session['selected_options'][option_id])
         if 'Previous' in request.POST:
             request.session['current_page_no'] -= 1
         elif 'Next' in request.POST or \
@@ -96,6 +112,10 @@ def quiz_view(request, quiz_id):
             try:
                 _validate_min_options_selected(page_question_list,
                                                request.session['selected_options'])
+
+                current_page_no = request.session['current_page_no']
+                current_score = _calculate_score(page_selected_options)
+                request.session['current_score'][current_page_no] = current_score
             except ValidationError as exception:
                 request.session['error'] = exception.message
             else:
@@ -116,27 +136,40 @@ def quiz_view(request, quiz_id):
                 #            ('opt_id', 'opt_text', True)]
                 options = []
                 for option_id, option_text in question['options'].items():
-                    is_selected = request_session['selected_options'][option_id]
+                    is_selected = request_session['selected_options'][option_id]['is_selected']
                     options.append((option_id, option_text, is_selected))
 
                 context_question_list.append((question['question_text'], options))
             return context_question_list
 
+        def _calculate_max_score(option_list):
+            max_score = 0
+            for _, option_info in option_list.items():
+                if option_info['score'] > 0:
+                    max_score += option_info['score']
+            return max_score
+
         error = request.session.get('error', None)
         request.session['error'] = None
         if request.session['current_page_no'] > request.session['last_page_no']:
             if not error:
+                # create the result page
+                score = sum(request.session['current_score'])
+                max_score = _calculate_max_score(request.session['selected_options'])
+                context = {'score': score,
+                           'max_score': max_score}
                 request.session.clear()
 
-                context = {}
                 return render(request, result_template_name, context)
             else:
                 request.session['current_page'] -= 1
 
         questions = _get_context_question_list(page_question_list, request.session)
 
+        is_last_page = request.session['current_page_no'] == request.session['last_page_no']
+
         context = {'quiz_id': quiz_id,
-                   'is_last_page': request.session['current_page_no'] == request.session['last_page_no'],
+                   'is_last_page': is_last_page,
                    'current_page': request.session['current_page_no'],
                    'questions': questions,
                    'error': error}
