@@ -1,2 +1,8 @@
 <h1> RESULT </h1>
 <p> Score: {{score}} / {{max_score}} </p>
+{% for page_sugestion in sugestions %}
+    <h2> Page {{forloop.counter}} :</h2>
+    {% for sugestion_text, sugestion_score in page_sugestion %}
+        <p> {{sugestion_text}}. Score changing by {{sugestion_score}} </p>
+    {% endfor %}
+{% endfor %}
