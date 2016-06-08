@@ -93,6 +93,50 @@ class QuizView(object):
                 max_score += option_info['score']
         return max_score
 
+    def _find_first_option(self, options, selected=False, reverse=False):
+        filtered_options = filter(lambda x: x['is_sel'] == selected,
+                                  options)
+        sorted_options = sorted(filtered_options,
+                                key=lambda x: x['score'],
+                                reverse=reverse)
+        try:
+            result = filtered_options[0]
+        except IndexError:
+            return None
+
+        if reverse:
+            if not result['score'] > 0:
+                return None
+        else:
+            if not result['score'] < 0:
+                return None
+        return result
+
+    def _compute_sugestions(self, question_list, request_session, questions_per_page):
+        question_it = iter(question_list)
+        # sugestions = [[('q3<d> -> <b>', None)],
+        #               [('q1<a> -> <b>', 'q2<c> -> <a>')]]
+        #                (best score,    worse score)
+        sugestions = []
+        while True:
+            try:
+                page_sugestion = [None] * self.questions_per_page
+                for idx in range(questions_per_page):
+                    question = question_it.next()
+
+                    options = [
+                        {'id': op_id,
+                         'text': op_text,
+                         'is_sel': request_session['selected_options'][op_id]['is_selected'],
+                         'score': request_session['selected_options'][op_id]['score']}
+                        for op_id, op_text in question['options'].items()]
+                    options.sort(key=lambda x: x['score'])
+
+                    self._find_first_option(options)
+            except StopIteration:
+                break
+        return sugestions
+
     def _init_session(self, request, quiz_id):
         raw_question_list = Question.objects.filter(quiz=quiz_id).prefetch_related('option_set')
 
@@ -145,8 +189,12 @@ class QuizView(object):
                 # create the result page
                 score = sum(request.session['current_score'])
                 max_score = self._calculate_max_score(request.session['selected_options'])
+                sugestions = self._compute_sugestions(question_list,
+                                                      request.session,
+                                                      self.questions_per_page)
                 context = {'score': score,
-                           'max_score': max_score}
+                           'max_score': max_score,
+                           'sugestions': sugestions}
                 request.session.clear()
 
                 return render(request, self.result_template_name, context)
