@@ -93,12 +93,12 @@ class QuizView(object):
                 max_score += option_info['score']
         return max_score
 
-    def _find_first_option(self, options, selected=False, reverse=False):
+    def _find_best_option(self, options, selected=False, positive=False):
         filtered_options = filter(lambda x: x['is_sel'] == selected,
                                   options)
         sorted_options = sorted(filtered_options,
                                 key=lambda x: x['score'],
-                                reverse=reverse)
+                                reverse=positive)
         try:
             result = sorted_options[0]
         except IndexError:
@@ -137,10 +137,10 @@ class QuizView(object):
                          'score': request_session['selected_options'][op_id]['score']}
                         for op_id, op_text in question['options'].items()]
 
-                    max_unsel = self._find_first_option(options, selected=False, reverse=True)
-                    min_sel = self._find_first_option(options, selected=True, reverse=False)
-                    min_unsel = self._find_first_option(options, selected=False, reverse=False)
-                    max_sel = self._find_first_option(options, selected=True, reverse=True)
+                    max_unsel = self._find_best_option(options, selected=False, positive=True)
+                    min_sel = self._find_best_option(options, selected=True, positive=False)
+                    min_unsel = self._find_best_option(options, selected=False, positive=False)
+                    max_sel = self._find_best_option(options, selected=True, positive=True)
 
                     # change the max_change if is a bigger difference
                     if max_unsel and min_sel:
