@@ -93,7 +93,10 @@ class QuizView(object):
                 max_score += option_info['score']
         return max_score
 
-    def _find_first_option(self, options, selected=False, reverse=False):
+    def _find_first_option(self, options, selected=False, reverse=False): 
+        # This is not a "find_first_option", it'a a "find option that improves/diminishes the score the most"
+        # In this case something like _find_best_option and renaming reverse to something like positive/improve
+        # and use it the same way
         filtered_options = filter(lambda x: x['is_sel'] == selected,
                                   options)
         sorted_options = sorted(filtered_options,
@@ -130,7 +133,7 @@ class QuizView(object):
                          'is_sel': request_session['selected_options'][op_id]['is_selected'],
                          'score': request_session['selected_options'][op_id]['score']}
                         for op_id, op_text in question['options'].items()]
-                    options.sort(key=lambda x: x['score'])
+                    options.sort(key=lambda x: x['score']) 
 
                     self._find_first_option(options)
             except StopIteration:
