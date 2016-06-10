@@ -16,7 +16,7 @@ class Question(models.Model):
     def __str__(self):
         return self.text
 
-    def quiz_name(self):
+    def quiz_name(self): # you can use question.quiz.name everywhere, even templates
         return self.quiz.name
 
 
