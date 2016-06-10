@@ -1,5 +1,6 @@
 <ul>
     {% for quiz in quizs_list %}
+        {% comment %} should be href="{% url 'quiz' quiz.id%}" {% endcomment %}
         <li><a href="/quiz/{{ quiz.id }}"> {{ quiz }} </a></li>
     {% endfor %}
 </ul>
