@@ -1,5 +1,5 @@
 <ul>
     {% for quiz in quizs_list %}
-        <li><a href="/quiz/{{ quiz.id }}"> {{ quiz }} </a></li>
+        <li><a href="{% url 'quiz' quiz.id %}"> {{ quiz }} </a></li>
     {% endfor %}
 </ul>

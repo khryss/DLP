@@ -13,12 +13,10 @@
             <input {% if is_selected %}
             checked 
             {% endif %} type='checkbox' name='{{option_id}}'>
-            <label> {{option_text}} </label><p>
-            </p>
+            <label> {{option_text}} </label><br><br>
         {% endfor %}
     {% endfor %}
-<p>
-</p>
+<br>
 {% if current_page != 0 %}
     <input type='submit' value='Previous Page' name='Previous'>
 {% endif %}
