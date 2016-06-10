@@ -14,7 +14,7 @@
             checked 
             {% endif %} type='checkbox' name='{{option_id}}'>
             <label> {{option_text}} </label><p>
-            </p>
+            </p> {%comment%} Very nice template. (minor) I don't think you need these extra <p>, you probabbly want to use <br>{% endcomment %}
         {% endfor %}
     {% endfor %}
 <p>
