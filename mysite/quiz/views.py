@@ -227,7 +227,7 @@ class QuizView(object):
 
                 return render(request, self.result_template_name, context)
             else:
-                request.session['current_page'] -= 1
+                request.session['current_page_no'] -= 1
 
         questions = self._get_context_question_list(page_question_list, request.session)
 
